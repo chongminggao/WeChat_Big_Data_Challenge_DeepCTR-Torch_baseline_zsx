@@ -75,6 +75,7 @@ if __name__ == "__main__":
                                   batch_size=batch_size, epochs=1, verbose=1)
 
         val_pred_ans = train_model.predict(val_model_input, batch_size=batch_size * 4)
+        # 模型predict()返回值格式为(?, 4)，与tf版mmoe不同。因此下方用到了transpose()进行变化。
         evaluate_deepctr(val_labels, val_pred_ans.transpose(), userid_list, target)
 
     t1 = time()

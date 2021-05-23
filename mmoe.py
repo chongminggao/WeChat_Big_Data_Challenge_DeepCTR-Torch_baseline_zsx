@@ -112,7 +112,7 @@ class MMOE(BaseModel):
             mmoe_outs = [self.task_dnn[i](mmoe_out) for i, mmoe_out in enumerate(mmoe_outs)]
 
         task_outputs = []
-        for i, [mmoe_out, task] in enumerate(zip(mmoe_outs, self.tasks)):
+        for i, mmoe_out in enumerate(mmoe_outs):
             logit = self.tower_network[i](mmoe_out)
             output = self.out[i](logit)
             task_outputs.append(output)
