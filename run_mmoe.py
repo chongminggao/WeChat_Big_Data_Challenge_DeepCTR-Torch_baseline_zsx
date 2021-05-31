@@ -62,7 +62,7 @@ if __name__ == "__main__":
     userid_list = val['userid'].astype(str).tolist()
     test_model_input = {name: test[name] for name in feature_names}
 
-    train_labels = np.array([train[y].values for y in target]).T
+    train_labels = np.array([train[y].values for y in target]).transpose()
     val_labels = [val[y].values for y in target]
 
     # 4.Define Model,train,predict and evaluate
