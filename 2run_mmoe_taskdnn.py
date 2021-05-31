@@ -5,6 +5,7 @@ import numpy as np
 
 from time import time
 from deepctr_torch.inputs import SparseFeat, DenseFeat, get_feature_names
+from sklearn.preprocessing import MinMaxScaler
 
 from mmoe import MMOE
 from evaluation import evaluate_deepctr
@@ -21,6 +22,7 @@ if __name__ == "__main__":
     dense_features = ['videoplayseconds', ]
 
     data = pd.read_csv('./data/wechat_algo_data1/user_action.csv')
+    # data = pd.read_csv('./data/wechat_algo_data1/user_action.csv', nrows=100000)
 
     feed = pd.read_csv('./data/wechat_algo_data1/feed_info.csv')
     feed[["bgm_song_id", "bgm_singer_id"]] += 1  # 0 用于填未知
@@ -32,15 +34,18 @@ if __name__ == "__main__":
                       on='feedid')
 
     test = pd.read_csv('./data/wechat_algo_data1/test_a.csv')
+    # test = pd.read_csv('./data/wechat_algo_data1/test_a.csv', nrows=50000)
     test = test.merge(feed[['feedid', 'authorid', 'videoplayseconds', 'bgm_song_id', 'bgm_singer_id']], how='left',
                       on='feedid')
 
     # 1.fill nan dense_feature and do simple Transformation for dense features
     data[dense_features] = data[dense_features].fillna(0, )
     test[dense_features] = test[dense_features].fillna(0, )
-
     data[dense_features] = np.log(data[dense_features] + 1.0)
     test[dense_features] = np.log(test[dense_features] + 1.0)
+    # mms = MinMaxScaler(feature_range=(0, 1))
+    # data[dense_features] = mms.fit_transform(data[dense_features])
+    # test[dense_features] = mms.fit_transform(test[dense_features])
 
     print('data.shape', data.shape)
     print('data.columns', data.columns.tolist())
@@ -62,12 +67,12 @@ if __name__ == "__main__":
     userid_list = val['userid'].astype(str).tolist()
     test_model_input = {name: test[name] for name in feature_names}
 
-    train_labels = np.array([train[y].values for y in target]).transpose()
+    train_labels = train[target].values
     val_labels = [val[y].values for y in target]
 
     # 4.Define Model,train,predict and evaluate
     train_model = MMOE(dnn_feature_columns, num_tasks=4, expert_dim=128, dnn_hidden_units=(128, 128),
-                       task_dnn_units=(128,64),
+                       task_dnn_units=(128, 64),
                        tasks=['binary', 'binary', 'binary', 'binary'], device=device)
     train_model.compile("adagrad", loss='binary_crossentropy')
     # print(train_model.summary())
