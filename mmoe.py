@@ -97,7 +97,7 @@ class MMOE(BaseModel):
                        init_std=init_std, device=device)
         self.mmoe_layer = MMOELayer(dnn_hidden_units[-1], num_tasks, num_experts, expert_dim)
         if task_dnn_units is not None:
-            self.task_dnn = nn.ModuleList([DNN(num_tasks * expert_dim, dnn_hidden_units) for _ in range(num_tasks)])
+            self.task_dnn = nn.ModuleList([DNN(expert_dim, dnn_hidden_units) for _ in range(num_tasks)])
         self.tower_network = nn.ModuleList([nn.Linear(expert_dim, 1, bias=False) for _ in range(num_tasks)])
         self.out = nn.ModuleList([PredictionLayer(task) for task in self.tasks])
         self.to(device)
