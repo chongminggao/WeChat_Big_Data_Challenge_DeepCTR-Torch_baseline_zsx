@@ -20,7 +20,8 @@ if __name__ == "__main__":
     sparse_features = ['userid', 'feedid', 'authorid', 'bgm_song_id', 'bgm_singer_id']
     dense_features = ['videoplayseconds', ]
 
-    data = pd.read_csv('./data/wechat_algo_data1/user_action.csv')
+    # data = pd.read_csv('./data/wechat_algo_data1/user_action.csv')
+    data = pd.read_csv('./data/wechat_algo_data1/user_action.csv', nrows=100000)
 
     feed = pd.read_csv('./data/wechat_algo_data1/feed_info.csv')
     feed[["bgm_song_id", "bgm_singer_id"]] += 1  # 0 用于填未知
@@ -31,7 +32,8 @@ if __name__ == "__main__":
     data = data.merge(feed[['feedid', 'authorid', 'videoplayseconds', 'bgm_song_id', 'bgm_singer_id']], how='left',
                       on='feedid')
 
-    test = pd.read_csv('./data/wechat_algo_data1/test_a.csv')
+    # test = pd.read_csv('./data/wechat_algo_data1/test_a.csv')
+    test = pd.read_csv('./data/wechat_algo_data1/test_a.csv', nrows=50000)
     test = test.merge(feed[['feedid', 'authorid', 'videoplayseconds', 'bgm_song_id', 'bgm_singer_id']], how='left',
                       on='feedid')
 
@@ -62,7 +64,7 @@ if __name__ == "__main__":
     userid_list = val['userid'].astype(str).tolist()
     test_model_input = {name: test[name] for name in feature_names}
 
-    train_labels = np.array([train[y].values for y in target]).transpose()
+    train_labels = train[target].values
     val_labels = [val[y].values for y in target]
 
     # 4.Define Model,train,predict and evaluate
