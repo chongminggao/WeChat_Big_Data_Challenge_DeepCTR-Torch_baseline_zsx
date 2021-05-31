@@ -62,7 +62,7 @@ if __name__ == "__main__":
     userid_list = val['userid'].astype(str).tolist()
     test_model_input = {name: test[name] for name in feature_names}
 
-    train_labels = np.array([train[y].values for y in target]).reshape(-1, 4, 1)
+    train_labels = np.array([train[y].values for y in target]).T
     val_labels = [val[y].values for y in target]
 
     # 4.Define Model,train,predict and evaluate
@@ -86,8 +86,8 @@ if __name__ == "__main__":
     ts = (t2 - t1) * 1000.0 / len(test) * 2000.0
     print('4个目标行为2000条样本平均预测耗时（毫秒）：%.3f' % ts)
 
-    # 5.生成提交文件
-    for i, action in enumerate(target):
-        test[action] = pred_ans[i]
-    test[['userid', 'feedid'] + target].to_csv('result.csv', index=None, float_format='%.6f')
-    print('to_csv ok')
+    # # 5.生成提交文件
+    # for i, action in enumerate(target):
+    #     test[action] = pred_ans[i]
+    # test[['userid', 'feedid'] + target].to_csv('result.csv', index=None, float_format='%.6f')
+    # print('to_csv ok')
