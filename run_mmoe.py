@@ -10,6 +10,10 @@ from sklearn.preprocessing import MinMaxScaler
 from mmoe import MMOE
 from evaluation import evaluate_deepctr
 
+# 训练相关参数设置
+ONLINE_FLAG = False  # 是否准备线上提交
+
+# 指定GPU
 os.environ["CUDA_VISIBLE_DEVICES"] = "3"
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -49,8 +53,11 @@ if __name__ == "__main__":
     print('data.columns', data.columns.tolist())
     print('unique date_: ', data['date_'].unique())
 
-    train = data[data['date_'] < 14]
-    val = data[data['date_'] == 14]  # 第14天样本作为验证集
+    if ONLINE_FLAG:
+        train = data
+    else:
+        train = data[data['date_'] < 14]
+    val = data[data['date_'] == 14]  # 第14天样本作为验证集，当ONLINE_FLAG=False时使用。
 
     # 2.count #unique features for each sparse field,and record dense feature field name
     fixlen_feature_columns = [SparseFeat(feat, vocabulary_size=data[feat].max() + 1, embedding_dim=embedding_dim)
@@ -76,10 +83,10 @@ if __name__ == "__main__":
     for epoch in range(epochs):
         history = train_model.fit(train_model_input, train_labels,
                                   batch_size=batch_size, epochs=1, verbose=1)
-
-        val_pred_ans = train_model.predict(val_model_input, batch_size=batch_size * 4)
-        # 模型predict()返回值格式为(?, 4)，与tf版mmoe不同。因此下方用到了transpose()进行变化。
-        evaluate_deepctr(val_labels, val_pred_ans.transpose(), userid_list, target)
+        if not ONLINE_FLAG:
+            val_pred_ans = train_model.predict(val_model_input, batch_size=batch_size * 4)
+            # 模型predict()返回值格式为(?, 4)，与tf版mmoe不同。因此下方用到了transpose()进行变化。
+            evaluate_deepctr(val_labels, val_pred_ans.transpose(), userid_list, target)
 
     t1 = time()
     pred_ans = train_model.predict(test_model_input, batch_size=batch_size * 20)
