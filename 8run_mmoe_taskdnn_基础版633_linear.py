@@ -7,7 +7,7 @@ from time import time
 from deepctr_torch.inputs import SparseFeat, DenseFeat, get_feature_names
 from sklearn.preprocessing import MinMaxScaler
 
-from mmoe import MMOE
+from mmoe_linear import MMOE
 from evaluation import evaluate_deepctr
 
 # 训练相关参数设置
