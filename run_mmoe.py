@@ -11,7 +11,7 @@ from mmoe import MMOE
 from evaluation import evaluate_deepctr
 
 # 训练相关参数设置
-ONLINE_FLAG = False  # 是否准备线上提交
+ONLINE_FLAG = True  # 是否准备线上提交
 
 # 指定GPU
 os.environ["CUDA_VISIBLE_DEVICES"] = "3"
@@ -96,8 +96,8 @@ if __name__ == "__main__":
     ts = (t2 - t1) * 1000.0 / len(test) * 2000.0
     print('4个目标行为2000条样本平均预测耗时（毫秒）：%.3f' % ts)
 
-    # # 5.生成提交文件
-    # for i, action in enumerate(target):
-    #     test[action] = pred_ans[i]
-    # test[['userid', 'feedid'] + target].to_csv('result.csv', index=None, float_format='%.6f')
-    # print('to_csv ok')
+    # 5.生成提交文件
+    for i, action in enumerate(target):
+        test[action] = pred_ans[i]
+    test[['userid', 'feedid'] + target].to_csv('result.csv', index=None, float_format='%.6f')
+    print('to_csv ok')
