@@ -1,0 +1,108 @@
+import os
+import torch
+import pandas as pd
+import numpy as np
+
+from time import time
+from deepctr_torch.inputs import SparseFeat, DenseFeat, get_feature_names
+from sklearn.preprocessing import MinMaxScaler
+
+from mmoe import MMOE
+from evaluation import evaluate_deepctr
+
+# 训练相关参数设置
+ONLINE_FLAG = False  # 是否准备线上提交
+
+# 指定GPU
+os.environ["CUDA_VISIBLE_DEVICES"] = "3"
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+if __name__ == "__main__":
+    epochs = 2
+    batch_size = 512
+    embedding_dim = 16
+    target = ["read_comment", "like", "click_avatar", "forward"]
+    sparse_features = ['userid', 'feedid', 'authorid', 'bgm_song_id', 'bgm_singer_id']
+    dense_features = ['videoplayseconds', ]
+
+    data = pd.read_csv('./data/wechat_algo_data1/user_action.csv')
+    # data = pd.read_csv('./data/wechat_algo_data1/user_action.csv', nrows=100000)
+    data.drop_duplicates(['userid', 'feedid'], inplace=True)
+
+    feed = pd.read_csv('./data/wechat_algo_data1/feed_info.csv')
+    feed[["bgm_song_id", "bgm_singer_id"]] += 1  # 0 用于填未知
+    feed[["bgm_song_id", "bgm_singer_id", "videoplayseconds"]] = \
+        feed[["bgm_song_id", "bgm_singer_id", "videoplayseconds"]].fillna(0)
+    feed['bgm_song_id'] = feed['bgm_song_id'].astype('int64')
+    feed['bgm_singer_id'] = feed['bgm_singer_id'].astype('int64')
+    data = data.merge(feed[['feedid', 'authorid', 'videoplayseconds', 'bgm_song_id', 'bgm_singer_id']], how='left',
+                      on='feedid')
+
+    test = pd.read_csv('./data/wechat_algo_data1/test_a.csv')
+    # test = pd.read_csv('./data/wechat_algo_data1/test_a.csv', nrows=50000)
+    test.drop_duplicates(['userid', 'feedid'], inplace=True)
+    test = test.merge(feed[['feedid', 'authorid', 'videoplayseconds', 'bgm_song_id', 'bgm_singer_id']], how='left',
+                      on='feedid')
+
+    # 1.fill nan dense_feature and do simple Transformation for dense features
+    data[dense_features] = data[dense_features].fillna(0, )
+    test[dense_features] = test[dense_features].fillna(0, )
+    data[dense_features] = np.log(data[dense_features] + 1.0)
+    test[dense_features] = np.log(test[dense_features] + 1.0)
+    # mms = MinMaxScaler(feature_range=(0, 1))
+    # data[dense_features] = mms.fit_transform(data[dense_features])
+    # test[dense_features] = mms.fit_transform(test[dense_features])
+
+    print('data.shape', data.shape)
+    print('data.columns', data.columns.tolist())
+    print('unique date_: ', data['date_'].unique())
+
+    if ONLINE_FLAG:
+        train = data
+    else:
+        train = data[data['date_'] < 14]
+    val = data[data['date_'] == 14]  # 第14天样本作为验证集，当ONLINE_FLAG=False时使用。
+
+    # 2.count #unique features for each sparse field,and record dense feature field name
+    fixlen_feature_columns = [SparseFeat(feat, vocabulary_size=data[feat].max() + 1, embedding_dim=embedding_dim)
+                              for feat in sparse_features] + [DenseFeat(feat, 1) for feat in dense_features]
+
+    dnn_feature_columns = fixlen_feature_columns
+    feature_names = get_feature_names(dnn_feature_columns)
+
+    # 3.generate input data for model
+    train_model_input = {name: train[name] for name in feature_names}
+    val_model_input = {name: val[name] for name in feature_names}
+    userid_list = val['userid'].astype(str).tolist()
+    test_model_input = {name: test[name] for name in feature_names}
+
+    train_labels = train[target].values
+    val_labels = [val[y].values for y in target]
+
+    # 4.Define Model,train,predict and evaluate
+    train_model = MMOE(dnn_feature_columns, num_tasks=4, expert_dim=128, dnn_hidden_units=(128, 128),
+                       task_dnn_units=(128, 64),
+                       tasks=['binary', 'binary', 'binary', 'binary'], device=device)
+    train_model.compile("adagrad", loss='binary_crossentropy')
+    # print(train_model.summary())
+    for epoch in range(epochs):
+        history = train_model.fit(train_model_input, train_labels,
+                                  batch_size=batch_size, epochs=1, verbose=1)
+        if not ONLINE_FLAG:
+            val_pred_ans = train_model.predict(val_model_input, batch_size=batch_size * 4)
+            # 模型predict()返回值格式为(?, 4)，与tf版mmoe不同。因此下方用到了transpose()进行变化。
+            evaluate_deepctr(val_labels, val_pred_ans.transpose(), userid_list, target)
+
+    t1 = time()
+    pred_ans = train_model.predict(test_model_input, batch_size=batch_size * 20)
+    pred_ans = pred_ans.transpose()
+    t2 = time()
+    print('4个目标行为%d条样本预测耗时（毫秒）：%.3f' % (len(test), (t2 - t1) * 1000.0))
+    ts = (t2 - t1) * 1000.0 / len(test) * 2000.0
+    print('4个目标行为2000条样本平均预测耗时（毫秒）：%.3f' % ts)
+
+    # # 5.生成提交文件
+    for i, action in enumerate(target):
+        test[action] = pred_ans[i]
+    test[['userid', 'feedid'] + target].to_csv('result.csv', index=None, float_format='%.6f')
+    print('to_csv ok')

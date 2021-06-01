@@ -82,10 +82,6 @@ class MMOE(BaseModel):
         self.tower_network = nn.ModuleList([nn.Linear(expert_dim, 1, bias=False) for _ in range(num_tasks)])
         self.out = nn.ModuleList([PredictionLayer(task) for task in self.tasks])
         self.to(device)
-        # initial model
-        for m in self.modules():
-            if isinstance(m, nn.Linear):
-                nn.init.normal_(m.weight)
 
     def forward(self, X):
         sparse_embedding_list, dense_value_list = self.input_from_feature_columns(X, self.dnn_feature_columns,
