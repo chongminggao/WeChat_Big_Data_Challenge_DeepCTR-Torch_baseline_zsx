@@ -42,6 +42,10 @@ class MMOELayer(nn.Module):
         self.expert_network = nn.Linear(self.input_dim, self.num_experts * self.output_dim, bias=True)
         self.gating_networks = nn.ModuleList(
             [nn.Linear(self.input_dim, self.num_experts, bias=False) for _ in range(self.num_tasks)])
+        # initial model
+        for m in self.modules():
+            if isinstance(m, nn.Linear):
+                nn.init.normal_(m.weight)
 
     def forward(self, inputs):
         outputs = []
